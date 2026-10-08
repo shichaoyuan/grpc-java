@@ -35,7 +35,10 @@ dependencies {
             project(':grpc-testing')
     testImplementation libraries.guava.testlib
 
-    testRuntimeOnly project(':grpc-census')
+    // learn 模式下不加载 :grpc-census，故测试运行时也跳过该依赖
+    if (!rootProject.learnMode) {
+        testRuntimeOnly project(':grpc-census')
+    }
 
     jmh project(':grpc-testing')
 

@@ -27,6 +27,8 @@ dependencies {
         exclude group: 'com.google.api', module: 'api-common'
     }
 
+    // grpc-protobuf 的主代码（StatusProto 等）使用了 grpc-protobuf-lite 的工具类，
+    // 因此 lite 模块始终需要加载（learn 模式亦不例外）。
     implementation (project(':grpc-protobuf-lite')) {
         exclude group: 'com.google.protobuf', module: 'protobuf-javalite'
     }

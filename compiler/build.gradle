@@ -156,8 +156,10 @@ sourceSets {
 dependencies {
     testImplementation project(':grpc-protobuf'),
             project(':grpc-stub')
-    testLiteImplementation project(':grpc-protobuf-lite'),
-            project(':grpc-stub')
+    if (!rootProject.learnMode) {
+        testLiteImplementation project(':grpc-protobuf-lite'),
+                project(':grpc-stub')
+    }
 }
 
 tasks.named("compileTestJava").configure {

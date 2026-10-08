@@ -21,8 +21,11 @@ dependencies {
 
     testImplementation libraries.mockito.core
 
-    testImplementation project(':grpc-testing-proto'),
-            testFixtures(project(':grpc-core'))
+    testImplementation testFixtures(project(':grpc-core'))
+    // learn 模式下 :grpc-testing-proto 未加载（依赖 protoc 工具链），跳过该测试依赖
+    if (!rootProject.learnMode) {
+        testImplementation project(':grpc-testing-proto')
+    }
 
     signature (libraries.signature.java) {
         artifact {

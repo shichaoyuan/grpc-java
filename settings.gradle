@@ -59,97 +59,140 @@ pluginManagement {
 }
 
 rootProject.name = "grpc"
+
+// 学习模式：默认即为学习模式，只加载核心模块。
+// 想加载全部模块（包括 grpc-compiler、Android、observability 等），
+// 在 IDEA / 命令行加 `-PlearnMode=false`。
+def learnMode = !(settings.hasProperty('learnMode') && !learnMode.toBoolean())
+// 暴露给所有子项目：beforeProject 在每个项目（含 root）配置前触发，
+// 子模块的 build.gradle 可通过 rootProject.learnMode 引用
+gradle.beforeProject { p -> p.ext.learnMode = learnMode }
+
+// =============================================================================
+// 核心学习模块（始终加载）
+// =============================================================================
+// grpc-api         : 公共 API（Channel/Server/ServiceDescriptor/MethodDescriptor 等）
+// grpc-core        : 核心实现（传输抽象 InternalInstrumented、序列化、负载均衡）
+// grpc-context     : Context 传递与生命周期（贯穿整个调用链）
+// grpc-stub        : 客户端 stub（BlockingStub / FutureStub / asyncStub）
+// grpc-protobuf    : Protobuf 集成（MessageMarshaller、Stub 抽象）
+// grpc-netty       : Netty 传输实现（最常用的 transport）
+// grpc-services    : 内置服务（Health、Reflection）
+// grpc-testing     : 测试基础（FakeClock、TestMethodDescriptors 等）
+// grpc-inprocess   : 进程内传输（学习 transport 抽象的好例子）
+// grpc-util        : 公共工具类
+// 注：grpc-compiler（protoc 插件源码）和 grpc-testing-proto（依赖 proto 生成代码）已剔除，
+//     减少对 protoc 工具链的依赖。
 include ":grpc-api"
 include ":grpc-core"
 include ":grpc-context"
 include ":grpc-stub"
-include ":grpc-census"
-include ":grpc-auth"
-include ":grpc-okhttp"
 include ":grpc-protobuf"
 include ":grpc-protobuf-lite"
 include ":grpc-netty"
-include ":grpc-netty-shaded"
-include ":grpc-googleapis"
-include ":grpc-grpclb"
-include ":grpc-testing"
-include ":grpc-testing-proto"
-include ":grpc-interop-testing"
-include ":grpc-gae-interop-testing-jdk8"
-include ":grpc-all"
-include ":grpc-alts"
-include ":grpc-benchmarks"
 include ":grpc-services"
-include ":grpc-servlet"
-include ":grpc-servlet-jakarta"
-include ":grpc-s2a"
-include ":grpc-xds"
-include ":grpc-bom"
-include ":grpc-rls"
-include ":grpc-authz"
-include ":grpc-gcp-csm-observability"
-include ":grpc-gcp-observability"
-include ":grpc-gcp-observability:interop"
-include ":grpc-istio-interop-testing"
+include ":grpc-testing"
 include ":grpc-inprocess"
 include ":grpc-util"
-include ":grpc-opentelemetry"
-include ":grpc-context-override-opentelemetry"
 
 project(':grpc-api').projectDir = "$rootDir/api" as File
 project(':grpc-core').projectDir = "$rootDir/core" as File
 project(':grpc-context').projectDir = "$rootDir/context" as File
 project(':grpc-stub').projectDir = "$rootDir/stub" as File
-project(':grpc-census').projectDir = "$rootDir/census" as File
-project(':grpc-auth').projectDir = "$rootDir/auth" as File
-project(':grpc-okhttp').projectDir = "$rootDir/okhttp" as File
 project(':grpc-protobuf').projectDir = "$rootDir/protobuf" as File
 project(':grpc-protobuf-lite').projectDir = "$rootDir/protobuf-lite" as File
 project(':grpc-netty').projectDir = "$rootDir/netty" as File
-project(':grpc-netty-shaded').projectDir = "$rootDir/netty/shaded" as File
-project(':grpc-googleapis').projectDir = "$rootDir/googleapis" as File
-project(':grpc-grpclb').projectDir = "$rootDir/grpclb" as File
-project(':grpc-testing').projectDir = "$rootDir/testing" as File
-project(':grpc-testing-proto').projectDir = "$rootDir/testing-proto" as File
-project(':grpc-interop-testing').projectDir = "$rootDir/interop-testing" as File
-project(':grpc-gae-interop-testing-jdk8').projectDir = "$rootDir/gae-interop-testing/gae-jdk8" as File
-project(':grpc-all').projectDir = "$rootDir/all" as File
-project(':grpc-alts').projectDir = "$rootDir/alts" as File
-project(':grpc-benchmarks').projectDir = "$rootDir/benchmarks" as File
 project(':grpc-services').projectDir = "$rootDir/services" as File
-project(':grpc-servlet').projectDir = "$rootDir/servlet" as File
-project(':grpc-servlet-jakarta').projectDir = "$rootDir/servlet/jakarta" as File
-project(':grpc-s2a').projectDir = "$rootDir/s2a" as File
-project(':grpc-xds').projectDir = "$rootDir/xds" as File
-project(':grpc-bom').projectDir = "$rootDir/bom" as File
-project(':grpc-rls').projectDir = "$rootDir/rls" as File
-project(':grpc-authz').projectDir = "$rootDir/authz" as File
-project(':grpc-gcp-csm-observability').projectDir = "$rootDir/gcp-csm-observability" as File
-project(':grpc-gcp-observability').projectDir = "$rootDir/gcp-observability" as File
-project(':grpc-gcp-observability:interop').projectDir = "$rootDir/gcp-observability/interop" as File
-project(':grpc-istio-interop-testing').projectDir = "$rootDir/istio-interop-testing" as File
+project(':grpc-testing').projectDir = "$rootDir/testing" as File
 project(':grpc-inprocess').projectDir = "$rootDir/inprocess" as File
 project(':grpc-util').projectDir = "$rootDir/util" as File
-project(':grpc-opentelemetry').projectDir = "$rootDir/opentelemetry" as File
-project(':grpc-context-override-opentelemetry').projectDir = "$rootDir/contextstorage" as File
 
-if (settings.hasProperty('skipCodegen') && skipCodegen.toBoolean()) {
-    println '*** Skipping the build of codegen and compilation of proto files because skipCodegen=true'
-} else {
+// learn 模式下不加载 grpc-compiler（protoc 插件源码，需 protoc 工具链）；非 learn 模式沿用 skipCodegen 设置。
+if (!learnMode && !(settings.hasProperty('skipCodegen') && skipCodegen.toBoolean())) {
     include ":grpc-compiler"
     project(':grpc-compiler').projectDir = "$rootDir/compiler" as File
+} else if (settings.hasProperty('skipCodegen') && skipCodegen.toBoolean()) {
+    println '*** Skipping the build of codegen and compilation of proto files because skipCodegen=true'
+}
+
+// =============================================================================
+// 以下模块在 learnMode 下会被跳过（需要 `-PlearnMode=false` 才加载）：
+// - 观测/追踪：census / opentelemetry / context-override-opentelemetry /
+//              gcp-csm-observability / gcp-observability
+// - 鉴权：auth / authz
+// - 其他传输：okhttp / netty-shaded / servlet / servlet-jakarta /
+//            binder / cronet / alts / s2a
+// - 高级特性：xds / grpclb / rls / googleapis / all / bom / benchmarks
+// - codegen：grpc-compiler（protoc 插件源码）
+// - 测试与示例：testing-proto / interop-testing / gae-interop-testing-jdk8 /
+//              istio-interop-testing / android / android-interop-testing
+// =============================================================================
+if (!learnMode) {
+    include ":grpc-census"
+    include ":grpc-auth"
+    include ":grpc-okhttp"
+    include ":grpc-netty-shaded"
+    include ":grpc-googleapis"
+    include ":grpc-grpclb"
+    include ":grpc-testing-proto"
+    include ":grpc-interop-testing"
+    include ":grpc-gae-interop-testing-jdk8"
+    include ":grpc-all"
+    include ":grpc-alts"
+    include ":grpc-benchmarks"
+    include ":grpc-servlet"
+    include ":grpc-servlet-jakarta"
+    include ":grpc-s2a"
+    include ":grpc-xds"
+    include ":grpc-bom"
+    include ":grpc-rls"
+    include ":grpc-authz"
+    include ":grpc-gcp-csm-observability"
+    include ":grpc-gcp-observability"
+    include ":grpc-gcp-observability:interop"
+    include ":grpc-istio-interop-testing"
+    include ":grpc-opentelemetry"
+    include ":grpc-context-override-opentelemetry"
+
+    project(':grpc-census').projectDir = "$rootDir/census" as File
+    project(':grpc-auth').projectDir = "$rootDir/auth" as File
+    project(':grpc-okhttp').projectDir = "$rootDir/okhttp" as File
+    project(':grpc-netty-shaded').projectDir = "$rootDir/netty/shaded" as File
+    project(':grpc-googleapis').projectDir = "$rootDir/googleapis" as File
+    project(':grpc-grpclb').projectDir = "$rootDir/grpclb" as File
+    project(':grpc-testing-proto').projectDir = "$rootDir/testing-proto" as File
+    project(':grpc-interop-testing').projectDir = "$rootDir/interop-testing" as File
+    project(':grpc-gae-interop-testing-jdk8').projectDir = "$rootDir/gae-interop-testing/gae-jdk8" as File
+    project(':grpc-all').projectDir = "$rootDir/all" as File
+    project(':grpc-alts').projectDir = "$rootDir/alts" as File
+    project(':grpc-benchmarks').projectDir = "$rootDir/benchmarks" as File
+    project(':grpc-servlet').projectDir = "$rootDir/servlet" as File
+    project(':grpc-servlet-jakarta').projectDir = "$rootDir/servlet/jakarta" as File
+    project(':grpc-s2a').projectDir = "$rootDir/s2a" as File
+    project(':grpc-xds').projectDir = "$rootDir/xds" as File
+    project(':grpc-bom').projectDir = "$rootDir/bom" as File
+    project(':grpc-rls').projectDir = "$rootDir/rls" as File
+    project(':grpc-authz').projectDir = "$rootDir/authz" as File
+    project(':grpc-gcp-csm-observability').projectDir = "$rootDir/gcp-csm-observability" as File
+    project(':grpc-gcp-observability').projectDir = "$rootDir/gcp-observability" as File
+    project(':grpc-gcp-observability:interop').projectDir = "$rootDir/gcp-observability/interop" as File
+    project(':grpc-istio-interop-testing').projectDir = "$rootDir/istio-interop-testing" as File
+    project(':grpc-opentelemetry').projectDir = "$rootDir/opentelemetry" as File
+    project(':grpc-context-override-opentelemetry').projectDir = "$rootDir/contextstorage" as File
 }
 
 if (settings.hasProperty('skipAndroid') && skipAndroid.toBoolean()) {
     println '  * Skipping the build of Android projects because skipAndroid=true'
 } else {
     println '*** Android SDK is required. To avoid building Android projects, set -PskipAndroid=true'
-    include ":grpc-cronet"
-    project(':grpc-cronet').projectDir = "$rootDir/cronet" as File
-    include ":grpc-android"
-    project(':grpc-android').projectDir = "$rootDir/android" as File
-    include ":grpc-android-interop-testing"
-    project(':grpc-android-interop-testing').projectDir = "$rootDir/android-interop-testing" as File
-    include ":grpc-binder"
-    project(':grpc-binder').projectDir = "$rootDir/binder" as File
+    if (!learnMode) {
+        include ":grpc-cronet"
+        project(':grpc-cronet').projectDir = "$rootDir/cronet" as File
+        include ":grpc-android"
+        project(':grpc-android').projectDir = "$rootDir/android" as File
+        include ":grpc-android-interop-testing"
+        project(':grpc-android-interop-testing').projectDir = "$rootDir/android-interop-testing" as File
+        include ":grpc-binder"
+        project(':grpc-binder').projectDir = "$rootDir/binder" as File
+    }
 }
